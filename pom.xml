@@ -22,11 +22,11 @@ under the License.
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>io.lilmonk</groupId>
-	<artifactId>flink_lib_build</artifactId>
+	<artifactId>cdc-iceberg-poc</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>Flink Quickstart Job</name>
+	<name>Flink MYSQL-CDC Iceberg POC</name>
 
 	<repositories>
 		<repository>
@@ -49,6 +49,7 @@ under the License.
 		<target.java.version>1.8</target.java.version>
 		<scala.binary.version>2.12</scala.binary.version>
 		<scala.version>2.12.15</scala.version>
+		<picocli.version>4.7.0</picocli.version>
 		<hadoop.version>3.3.2</hadoop.version>
 		<aws.sdk.version>2.17.257</aws.sdk.version>
 		<flink-sql-connector-mysql-cdc.version>2.3.0</flink-sql-connector-mysql-cdc.version>
@@ -181,6 +182,11 @@ under the License.
 			<version>${aws.sdk.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>info.picocli</groupId>
+			<artifactId>picocli</artifactId>
+			<version>${picocli.version}</version>
+		</dependency>
 		<!-- Add logging framework, to produce console output when running in the IDE. -->
 		<!-- These dependencies are excluded from the application JAR by default. -->
 		<dependency>
@@ -243,7 +249,7 @@ under the License.
 							<transformers>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>io.lilmonk.DataStreamCDC</mainClass>
+									<mainClass>io.lilmonk.SQLQueryCDC</mainClass>
 								</transformer>
 							</transformers>
 						</configuration>

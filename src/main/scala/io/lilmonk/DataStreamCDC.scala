@@ -15,10 +15,10 @@ import java.util
 
 
 object DataStreamCDC {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val settings = EnvironmentSettings.newInstance().inStreamingMode().build()
     val env = StreamExecutionEnvironment.getExecutionEnvironment
-    env.enableCheckpointing(1000L, CheckpointingMode.EXACTLY_ONCE)
+    env.enableCheckpointing(5000L, CheckpointingMode.EXACTLY_ONCE)
     //    env.setStateBackend(new HashMapStateBackend())
     //    env.getCheckpointConfig.setCheckpointStorage("file:///tmp/flink-checkpoint")
     val tableEnv = StreamTableEnvironment.create(env, settings)
@@ -45,29 +45,7 @@ object DataStreamCDC {
         |""".stripMargin
     tableEnv.executeSql(customersSQL)
 
-    val customersSinkSQL =
-      """
-        |CREATE TABLE customers_sink (
-        |    database_name STRING,
-        |    table_name STRING,
-        |    `id` DECIMAL(20, 0) NOT NULL,
-        |    first_name STRING,
-        |    last_name STRING,
-        |    email STRING,
-        |    PRIMARY KEY (`id`) NOT ENFORCED
-        |  ) WITH (
-        |    'connector'='iceberg',
-        |    'catalog-name'='iceberg_catalog',
-        |    'catalog-impl'='org.apache.iceberg.rest.RESTCatalog',
-        |    'uri'='http://localhost:8181',
-        |    'io-impl'='org.apache.iceberg.aws.s3.S3FileIO',
-        |    's3-endpoint'='http://localhost:9000',
-        |    'warehouse'='s3://warehouse/wh/'
-        |  );
-        |""".stripMargin
-    tableEnv.executeSql(customersSinkSQL)
-
-    val customersTable = tableEnv.from("customers").select($"*")
+    val customersTable = tableEnv.from("customers").select($"first_name", $"last_name", $"email")
 
     // To print cdc data
     // customersTable.execute().print() // You can either print the cdc data or push to sink.
@@ -78,17 +56,17 @@ object DataStreamCDC {
     catalogProperties.put("io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
     catalogProperties.put("warehouse", "s3://warehouse/wh/")
     catalogProperties.put("s3.endpoint", "http://localhost:9000")
+    catalogProperties.put("s3.path.style.access", "true")
+    catalogProperties.put("s3.access-key", "root_user")
+    catalogProperties.put("s3.secret-key", "root_pass")
     val catalogLoader = CatalogLoader.custom("demo", catalogProperties, hadoopConf, "org.apache.iceberg.rest.RESTCatalog")
     val schema = new Schema(
-      Types.NestedField.required(1, "id", Types.DecimalType.of(20, 0)),
-      Types.NestedField.optional(2, "first_name", Types.StringType.get),
-      Types.NestedField.required(3, "last_name", Types.StringType.get),
-      Types.NestedField.required(4, "email", Types.StringType.get),
-      Types.NestedField.required(5, "database_name", Types.StringType.get),
-      Types.NestedField.required(6, "table_name", Types.StringType.get)
+      Types.NestedField.required(1, "first_name", Types.StringType.get),
+      Types.NestedField.required(2, "last_name", Types.StringType.get),
+      Types.NestedField.required(3, "email", Types.StringType.get)
     )
     val catalog = catalogLoader.loadCatalog
-    val databaseName = "default"
+    val databaseName = "default_database"
     val tableName = "customers_sink"
     val outputTable = TableIdentifier.of(databaseName, tableName)
     if (!catalog.tableExists(outputTable)) catalog.createTable(outputTable, schema, PartitionSpec.unpartitioned)
@@ -97,7 +75,7 @@ object DataStreamCDC {
     FlinkSink.forRow(customerDS, FlinkSchemaUtil.toSchema(schema))
       .tableLoader(TableLoader.fromCatalog(catalogLoader, outputTable))
       .distributionMode(DistributionMode.HASH)
-      .writeParallelism(2)
+      .writeParallelism(1)
       .append()
 
     // execute the program

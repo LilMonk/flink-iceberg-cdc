@@ -1,0 +1,20 @@
+CREATE TABLE customers_sink (
+    database_name STRING,
+    table_name STRING,
+    `id` DECIMAL(20, 0) NOT NULL,
+    first_name STRING,
+    last_name STRING,
+    email STRING,
+    PRIMARY KEY (`id`) NOT ENFORCED
+  ) WITH (
+    'connector'='iceberg',
+    'catalog-name'='iceberg_catalog',
+    'catalog-impl'='org.apache.iceberg.rest.RESTCatalog',
+    'uri'='http://rest-catalog:8181',
+    'io-impl'='org.apache.iceberg.aws.s3.S3FileIO',
+    's3.endpoint'='http://minio:9000',
+    's3.path.style.access'='true',
+    's3.access-key'='root_user',
+    's3.secret-key'='root_pass',
+    'warehouse'='s3://warehouse/wh/'
+  );

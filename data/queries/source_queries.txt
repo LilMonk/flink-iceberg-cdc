@@ -1,0 +1,17 @@
+CREATE TABLE customers (
+    database_name STRING METADATA VIRTUAL,
+    table_name STRING METADATA VIRTUAL,
+    `id` DECIMAL(20, 0) NOT NULL,
+    first_name STRING,
+    last_name STRING,
+    email STRING,
+    PRIMARY KEY (`id`) NOT ENFORCED
+  ) WITH (
+    'connector' = 'mysql-cdc',
+    'hostname' = 'mysql',
+    'port' = '3306',
+    'username' = 'root',
+    'password' = 'root_pass',
+    'database-name' = 'inventory',
+    'table-name' = 'customers'
+  );

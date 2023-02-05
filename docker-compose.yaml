@@ -9,7 +9,6 @@ services:
       - MYSQL_ROOT_PASSWORD=root_pass
       - MYSQL_USER=mysqluser
       - MYSQL_PASSWORD=mysqlpw
-      - TZ=Asia/Kolkata
 
   rest:
     image: tabulario/iceberg-rest:0.1.0
@@ -23,7 +22,6 @@ services:
       - CATALOG_WAREHOUSE=s3a://warehouse/wh/
       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
       - CATALOG_S3_ENDPOINT=http://minio:9000
-
 
   minio:
     image: minio/minio
@@ -53,52 +51,58 @@ services:
       /usr/bin/mc policy set public minio/warehouse;
       exit 0;
       "
-#  flink-jobmanager:
-#    image: flink:latest
-#    container_name: flink-jobmanager
-#    ports:
-#      - "8081:8081"
-#    command: jobmanager
-#    environment:
-#      - |
-#        FLINK_PROPERTIES=
-#        jobmanager.rpc.address: flink-jobmanager
-#      - AWS_ACCESS_KEY_ID=root_user
-#      - AWS_SECRET_ACCESS_KEY=root_pass
-#      - AWS_REGION=us-east-1
-#
-#  flink-taskmanager:
-#    image: flink:latest
-#    container_name: flink-taskmanager
-#    depends_on:
-#      - flink-jobmanager
-#    command: taskmanager
-#    scale: 1
-#    environment:
-#      - |
-#        FLINK_PROPERTIES=
-#        jobmanager.rpc.address: flink-jobmanager
-#        taskmanager.numberOfTaskSlots: 2
-#      - AWS_ACCESS_KEY_ID=root_user
-#      - AWS_SECRET_ACCESS_KEY=root_pass
-#      - AWS_REGION=us-east-1
 
-volumes:
-  notebook:
+  spark-iceberg:
+    image: tabulario/spark-iceberg:latest
+    container_name: spark
+    build: ./spark
+    depends_on:
+      - rest
+      - minio
+    volumes:
+      - ./data/warehouse:/home/iceberg/warehouse
+      - ./data/notebooks:/home/iceberg/notebooks/notebooks
+    environment:
+      - AWS_ACCESS_KEY_ID=root_user
+      - AWS_SECRET_ACCESS_KEY=root_pass
+      - AWS_REGION=us-east-1
+    ports:
+      - 8888:8888
+      - 8080:8080
+    links:
+      - rest:rest
+      - minio:minio
 
-  # notebook:
-  #   image: lilmonk/flink:latest
-  #   container_name: pyflink-notebook
-  #   user: root
-  #   ports:
-  #     - 8182:8081
-  #     - 8888:8888
-  #   environment:
-  #     - GRANT_SUDO=yes
-  #     - JUPYTER_ENABLE_LAB=yes
-  #     - JUPYTER_TOKEN=mysecret
-  #     - AWS_ACCESS_KEY_ID=root_user
-  #     - AWS_SECRET_ACCESS_KEY=root_pass
-  #     - AWS_REGION=us-east-1
-  #   volumes:
-  #     - notebook:/home/notebook
+  flink-jobmanager:
+    image: lilmonk/flink:latest
+    build: ./flink
+    container_name: flink-jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+      - AWS_ACCESS_KEY_ID=root_user
+      - AWS_SECRET_ACCESS_KEY=root_pass
+      - AWS_REGION=us-east-1
+    volumes:
+      - ./data/queries:/data
+
+  flink-taskmanager:
+    image: lilmonk/flink:latest
+    container_name: flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+      - AWS_ACCESS_KEY_ID=root_user
+      - AWS_SECRET_ACCESS_KEY=root_pass
+      - AWS_REGION=us-east-1
+    volumes:
+      - ./data/queries:/data
